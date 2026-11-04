@@ -13,6 +13,12 @@ local.properties
 *.aab
 *.hprof
 
+# 签名材料：绝不入库
+keystore.properties
+*.jks
+*.keystore
+*.p12
+
 # 系统
 .DS_Store
 Thumbs.db
