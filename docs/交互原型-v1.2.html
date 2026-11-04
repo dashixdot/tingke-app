@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>听课时间轴打标 · 原型 v1.2</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#fff; --ink:#1f2937; --sub:#6b7280;
+    --brand:#2563eb; --brand-d:#1d4ed8; --line:#e5e7eb; --danger:#dc2626;
+    --ok:#16a34a; --warn:#d97706; --q:#7c3aed; --soft:#eef2ff; --chipbg:#fff;
+    --track:#e8edf3;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0f172a; --card:#1e293b; --ink:#e2e8f0; --sub:#94a3b8;
+      --brand:#3b82f6; --brand-d:#93c5fd; --line:#334155; --danger:#f87171;
+      --ok:#4ade80; --warn:#fbbf24; --q:#a78bfa; --soft:#1e3a8a; --chipbg:#1e293b;
+      --track:#0b1220;
+    }
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;}
+  .app{max-width:480px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;
+    background:var(--bg);position:relative;}
+
+  /* ===== 顶部信息条 ===== */
+  .topbar{padding:12px 16px;background:var(--brand);color:#fff;}
+  .topbar .ttl{font-size:17px;font-weight:700;padding-right:120px;}
+  .topbar .meta{font-size:12px;opacity:.92;margin-top:3px;line-height:1.5;}
+  .topbar .acts{position:absolute;top:12px;right:16px;display:flex;gap:6px;}
+  .topbar .mini{font-size:12px;border:1px solid rgba(255,255,255,.55);border-radius:14px;
+    padding:3px 10px;cursor:pointer;background:transparent;color:#fff;}
+  .topbar .mini:active{background:rgba(255,255,255,.18);}
+  #topbar{position:relative;}
+
+  /* ===== 开始页 ===== */
+  .start{flex:1;display:flex;flex-direction:column;gap:14px;padding:20px 16px calc(20px + env(safe-area-inset-bottom));}
+  .infocard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;}
+  .infocard .rowline{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;gap:12px;}
+  .infocard .rowline span:first-child{color:var(--sub);flex:0 0 auto;}
+  .infocard .rowline span:last-child{text-align:right;word-break:break-all;}
+  .recopt{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
+    border-radius:14px;padding:14px;cursor:pointer;user-select:none;}
+  .recopt input{width:20px;height:20px;accent-color:var(--brand);flex:0 0 auto;}
+  .recopt .txt{flex:1;}
+  .recopt .tt{font-size:14px;font-weight:600;}
+  .recopt .dd{font-size:12px;color:var(--sub);margin-top:3px;line-height:1.45;}
+  .bigbtn{background:var(--brand);color:#fff;border:none;border-radius:14px;padding:18px;
+    font-size:18px;font-weight:700;cursor:pointer;width:100%;}
+  .bigbtn:active{transform:scale(.99);}
+  .spacer{flex:1;}
+
+  /* ===== 计时页 ===== */
+  .clock{flex:1;display:flex;flex-direction:column;align-items:center;gap:10px;padding:18px 16px 8px;}
+  .timer{font-size:62px;font-weight:800;letter-spacing:2px;font-variant-numeric:tabular-nums;line-height:1.05;}
+  .timer.paused{color:var(--sub);}
+  .state{font-size:13px;color:var(--sub);}
+  .state.run{color:var(--ok);} .state.pau{color:var(--warn);}
+  .recind{display:none;align-items:center;gap:6px;color:var(--danger);font-size:13px;font-weight:600;}
+  .recind .dot{width:9px;height:9px;border-radius:50%;background:var(--danger);animation:blink 1s infinite;}
+  @keyframes blink{50%{opacity:.15;}}
+  .recwarn{display:none;background:#fef3c7;color:#92400e;border:1px solid #fbbf24;border-radius:10px;
+    padding:8px 12px;font-size:12px;line-height:1.45;width:100%;text-align:center;}
+  @media (prefers-color-scheme: dark){ .recwarn{background:#422006;color:#fde68a;border-color:#a16207;} }
+
+  /* 当前环节卡 */
+  .nowcard{width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;}
+  .nowcard .k{font-size:12px;color:var(--sub);}
+  .nowcard .v{display:flex;align-items:baseline;gap:8px;margin-top:4px;}
+  .nowcard .lab{display:inline-block;padding:3px 12px;border-radius:10px;color:#fff;font-size:15px;font-weight:700;}
+  .nowcard .d{font-variant-numeric:tabular-nums;font-size:17px;font-weight:700;color:var(--brand-d);}
+  .lastcard{width:100%;display:flex;align-items:center;gap:10px;background:var(--card);
+    border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;}
+  .lastcard .txt{flex:1;color:var(--sub);}
+  .lastcard .txt b{color:var(--ink);}
+  .lastcard .act{border:1px solid var(--line);background:var(--soft);color:var(--brand-d);
+    border-radius:10px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;}
+
+  /* 标签坞 */
+  .dockwrap{width:100%;margin-top:auto;}
+  .dockhint{font-size:11px;color:var(--sub);text-align:center;margin:2px 0 6px;}
+  .dock{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .dockitem{border:1px solid var(--line);background:var(--chipbg);border-radius:10px;
+    padding:10px 2px;font-size:12px;font-weight:600;text-align:center;cursor:pointer;
+    line-height:1.2;color:var(--ink);}
+  .dockitem:active{transform:scale(.96);background:var(--soft);}
+  .dockitem.flash{background:var(--brand);color:#fff;border-color:var(--brand);}
+  @media (min-width:768px){ .dock{grid-template-columns:repeat(10,1fr);} }
+
+  /* ===== 底部操作 ===== */
+  .bottom{padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--card);
+    border-top:1px solid var(--line);}
+  .brow{display:flex;gap:9px;}
+  .btn{flex:1;border:none;border-radius:12px;padding:13px;font-size:15px;font-weight:600;
+    cursor:pointer;white-space:nowrap;}
+  .btn.sec{background:var(--soft);color:var(--brand-d);}
+  .btn.ghost{background:var(--track);color:var(--sub);}
+  .btn.end{background:transparent;color:var(--danger);border:1px solid var(--danger);}
+  .btn:active{transform:scale(.98);}
+  .badge{font-size:11px;opacity:.85;}
+
+  /* ===== 时间轴抽屉 ===== */
+  .drawer{position:fixed;left:0;right:0;bottom:0;max-width:480px;margin:0 auto;
+    background:var(--card);border-radius:18px 18px 0 0;box-shadow:0 -8px 32px rgba(0,0,0,.22);
+    transform:translateY(105%);transition:transform .26s ease;z-index:30;max-height:72vh;display:flex;flex-direction:column;}
+  .drawer.show{transform:translateY(0);}
+  .drawer .dh{padding:10px 16px 6px;cursor:pointer;}
+  .drawer .bar{width:44px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 8px;}
+  .drawer .dtitle{display:flex;justify-content:space-between;align-items:center;font-size:15px;font-weight:700;}
+  .drawer .dtitle .x{color:var(--sub);font-size:20px;font-weight:400;cursor:pointer;padding:0 6px;}
+  .drawer .dlist{overflow:auto;padding:0 16px calc(16px + env(safe-area-inset-bottom));}
+  .dim{position:fixed;inset:0;background:rgba(0,0,0,.35);display:none;z-index:25;}
+  .dim.show{display:block;}
+
+  /* ===== 时间轴条目 ===== */
+  .empty{text-align:center;color:var(--sub);padding:44px 20px;font-size:14px;line-height:1.7;}
+  .item{display:flex;gap:10px;padding:11px 0;border-bottom:1px solid var(--line);align-items:flex-start;}
+  .t{font-variant-numeric:tabular-nums;font-weight:700;font-size:14px;min-width:52px;color:var(--brand-d);padding-top:2px;}
+  .body{flex:1;min-width:0;}
+  .lab{display:inline-block;padding:2px 10px;border-radius:10px;color:#fff;font-size:13px;font-weight:600;}
+  .ev{font-size:12px;margin-left:5px;}
+  .ev.ok{color:var(--ok);} .ev.wa{color:var(--warn);} .ev.qu{color:var(--q);}
+  .dur{display:inline-block;font-size:12px;color:var(--brand-d);background:var(--soft);
+    border-radius:8px;padding:1px 8px;margin-left:5px;font-variant-numeric:tabular-nums;}
+  .note{font-size:12px;color:var(--sub);margin-top:4px;line-height:1.5;word-break:break-word;}
+  .ops{display:flex;flex-direction:column;gap:4px;flex:0 0 auto;}
+  .op{font-size:12px;cursor:pointer;padding:4px 8px;border-radius:8px;background:var(--track);color:var(--sub);text-align:center;}
+  .op.del{color:var(--danger);}
+
+  /* ===== 报告页 ===== */
+  .page{padding:14px 16px 16px;flex:1;}
+  .tabs{display:flex;gap:8px;margin-bottom:12px;}
+  .tbtn{flex:1;text-align:center;padding:9px;border-radius:10px;background:var(--soft);
+    color:var(--brand-d);font-size:13px;font-weight:600;cursor:pointer;}
+  .tbtn.on{background:var(--brand);color:#fff;}
+  .report{white-space:pre-wrap;background:var(--track);color:var(--ink);
+    font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;line-height:1.6;
+    padding:14px;border-radius:12px;max-height:44vh;overflow:auto;word-break:break-all;}
+  .srow{margin-bottom:12px;}
+  .shead{display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;gap:10px;}
+  .shead .nm{font-weight:700;}
+  .shead .num{color:var(--sub);font-variant-numeric:tabular-nums;flex:0 0 auto;}
+  .sbar{height:14px;background:var(--track);border-radius:7px;overflow:hidden;}
+  .sfill{height:100%;border-radius:7px;transition:width .3s;}
+  .sumrow{display:flex;justify-content:space-between;font-size:12px;color:var(--sub);
+    border-top:1px dashed var(--line);padding-top:10px;margin-top:4px;}
+  .exp{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+  .exp button{flex:1;min-width:calc(50% - 4px);background:var(--soft);color:var(--brand-d);
+    border:none;border-radius:10px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;}
+  .exp button:active{transform:scale(.98);}
+  .audio{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;}
+  .audio .atitle{font-size:12px;color:var(--sub);margin-bottom:6px;}
+  .audio audio{width:100%;display:block;margin-bottom:6px;}
+  .audio .alnk{font-size:12px;color:var(--brand-d);text-decoration:none;display:inline-block;margin-right:12px;}
+  .audionote{font-size:12px;color:#92400e;background:#fef3c7;border:1px solid #fbbf24;
+    border-radius:10px;padding:9px 12px;margin-bottom:10px;line-height:1.5;}
+
+  /* ===== 弹窗 ===== */
+  .mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;z-index:40;
+    align-items:flex-end;justify-content:center;}
+  .mask.show{display:flex;}
+  .sheet{width:100%;max-width:480px;background:var(--card);border-radius:18px 18px 0 0;
+    max-height:90vh;overflow:auto;padding:16px 16px calc(16px + env(safe-area-inset-bottom));}
+  .sheet h3{margin:0 0 4px;font-size:17px;}
+  .sheet .hint{font-size:12px;color:var(--sub);margin-bottom:12px;line-height:1.5;}
+  .closeX{float:right;color:var(--sub);font-size:22px;cursor:pointer;margin-top:-4px;padding:0 6px;}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;}
+  .chip{padding:11px 4px;border:1px solid var(--line);border-radius:10px;background:var(--chipbg);
+    font-size:13px;text-align:center;cursor:pointer;line-height:1.25;}
+  .chip.on{border-color:var(--brand);background:var(--soft);color:var(--brand-d);font-weight:700;}
+  .chip.sm{font-size:12px;padding:9px 4px;}
+  .seg{display:flex;gap:8px;margin-bottom:14px;}
+  .seg .chip{flex:1;}
+  .sub-lbl{font-size:12px;color:var(--sub);margin:6px 0 6px;font-weight:600;}
+  .field{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:14px;
+    resize:none;margin-bottom:12px;font-family:inherit;background:var(--chipbg);color:var(--ink);}
+  .save{width:100%;background:var(--brand);color:#fff;border:none;border-radius:12px;
+    padding:15px;font-size:16px;font-weight:700;cursor:pointer;}
+  .save:disabled{background:#cbd5e1;color:#fff;}
+
+  /* ===== 历史 ===== */
+  .hitem{background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:12px 14px;margin-bottom:10px;cursor:pointer;}
+  .hitem .h1{font-size:15px;font-weight:700;margin-bottom:4px;}
+  .hitem .h2{font-size:12px;color:var(--sub);line-height:1.6;}
+  .hitem .h3{font-size:12px;color:var(--brand-d);margin-top:6px;}
+  .histbanner{background:var(--soft);color:var(--brand-d);border-radius:10px;
+    padding:9px 12px;font-size:12px;margin-bottom:12px;line-height:1.5;}
+
+  /* ===== toast ===== */
+  .toast{position:fixed;left:50%;bottom:calc(150px + env(safe-area-inset-bottom));
+    transform:translateX(-50%);background:rgba(17,24,39,.93);color:#fff;padding:10px 14px;
+    border-radius:12px;font-size:13px;display:none;z-index:60;max-width:88%;
+    align-items:center;gap:10px;box-shadow:0 6px 20px rgba(0,0,0,.25);}
+  .toast.show{display:flex;}
+  .toast .tact{border:none;background:rgba(255,255,255,.18);color:#fff;border-radius:8px;
+    padding:5px 10px;font-size:13px;font-weight:700;cursor:pointer;flex:0 0 auto;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ===== 顶部 ===== -->
+  <div class="topbar" id="topbar">
+    <div class="acts">
+      <button class="mini" onclick="openInfo()">编辑</button>
+      <button class="mini" onclick="openHist()">历史</button>
+    </div>
+    <div class="ttl" id="ttl">听课打标</div>
+    <div class="meta" id="meta">准备开始</div>
+  </div>
+
+  <!-- ===== 开始页 ===== -->
+  <div class="start" id="startView">
+    <div class="infocard">
+      <div class="rowline"><span>课题</span><span id="sTitle">未填写</span></div>
+      <div class="rowline"><span>授课教师</span><span id="sTeacher">未填写</span></div>
+      <div class="rowline"><span>班级</span><span id="sCls">未填写</span></div>
+      <div class="rowline"><span>听课人</span><span id="sObs">未填写</span></div>
+      <div class="rowline"><span>日期 / 节次</span><span id="sDate">—</span></div>
+    </div>
+    <label class="recopt" for="recOn">
+      <input type="checkbox" id="recOn" checked onchange="onRecToggle()">
+      <div class="txt">
+        <div class="tt">同时录音（默认开启）</div>
+        <div class="dd" id="recHint">开始听课即同步录音，便于课后回听核对；不需要可取消勾选。</div>
+      </div>
+    </label>
+    <div class="spacer"></div>
+    <button class="bigbtn" onclick="startSession()">开始听课</button>
+  </div>
+
+  <!-- ===== 计时页 ===== -->
+  <div class="clock" id="clockView" style="display:none">
+    <div class="timer" id="timer">00:00</div>
+    <div class="state" id="state">待开始</div>
+    <div class="recind" id="recInd"><span class="dot"></span><span id="recTxt">录音 00:00</span></div>
+    <div class="recwarn" id="recWarn"></div>
+    <div class="nowcard">
+      <div class="k">当前环节</div>
+      <div class="v">
+        <span class="lab" id="nowLab" style="background:var(--sub)">未打标</span>
+        <span class="d" id="nowDur">00:00</span>
+      </div>
+    </div>
+    <div class="lastcard" id="lastCard" style="display:none">
+      <div class="txt" id="lastTxt"></div>
+      <button class="act" onclick="editLast()">补充细节</button>
+    </div>
+    <div class="dockwrap">
+      <div class="dockhint">轻点标签立即打标 · 长按可补充子标签/评课标记/备注</div>
+      <div class="dock" id="dock"></div>
+    </div>
+  </div>
+
+  <!-- ===== 时间轴抽屉 ===== -->
+  <div class="dim" id="dim" onclick="closeAxis()"></div>
+  <div class="drawer" id="axisDrawer">
+    <div class="dh" onclick="closeAxis()">
+      <div class="bar"></div>
+      <div class="dtitle"><span id="axisTitle">时间轴</span><span class="x">×</span></div>
+    </div>
+    <div class="dlist" id="axisList"></div>
+  </div>
+
+  <!-- ===== 报告页 ===== -->
+  <div class="page" id="reportView" style="display:none">
+    <div class="histbanner" id="histBanner" style="display:none"></div>
+    <div id="audioWrap"></div>
+    <div class="tabs">
+      <div class="tbtn on" data-rep="share" onclick="setRep('share')">环节占比</div>
+      <div class="tbtn" data-rep="txt" onclick="setRep('txt')">文本时间轴</div>
+      <div class="tbtn" data-rep="csv" onclick="setRep('csv')">CSV</div>
+    </div>
+    <div id="shareBox"></div>
+    <div class="report" id="reportBox" style="display:none"></div>
+    <div class="exp" id="expRow">
+      <button onclick="downloadCsv()">下载 CSV（Excel）</button>
+      <button onclick="exportPng()">导出占比长图</button>
+      <button onclick="copyText()">复制文本</button>
+    </div>
+  </div>
+
+  <!-- ===== 历史页 ===== -->
+  <div class="page" id="histView" style="display:none">
+    <div id="histList"></div>
+  </div>
+
+  <!-- ===== 底部操作 ===== -->
+  <div class="bottom" id="bottomBar" style="display:none">
+    <div class="brow" id="barClock" style="display:none">
+      <button class="btn ghost" onclick="openAxis()">时间轴 <span class="badge" id="cntBadge"></span></button>
+      <button class="btn sec" id="pauseBtn" onclick="togglePause()">暂停</button>
+      <button class="btn end" onclick="endSession()">结束</button>
+    </div>
+    <div class="brow" id="barReport" style="display:none">
+      <button class="btn ghost" onclick="openHist()">历史记录</button>
+      <button class="btn sec" onclick="newSession()">再听一节</button>
+    </div>
+    <div class="brow" id="barHist" style="display:none">
+      <button class="btn ghost" id="histBack" onclick="backToClock()" style="display:none">返回计时</button>
+      <button class="btn sec" onclick="newSession()">开始新的一节</button>
+    </div>
+  </div>
+
+  <!-- ===== 编辑打标弹窗 ===== -->
+  <div class="mask" id="tagMask">
+    <div class="sheet">
+      <span class="closeX" onclick="closeTag()">×</span>
+      <h3 id="tagHead">打标</h3>
+      <div class="hint" id="tagTime">打标时刻：00:00</div>
+      <div class="sub-lbl">① 环节（必选）</div>
+      <div class="grid" id="labelGrid"></div>
+      <div id="subWrap" style="display:none">
+        <div class="sub-lbl">② 子标签（可选）</div>
+        <div class="grid" id="subGrid"></div>
+      </div>
+      <div class="sub-lbl">③ 评课标记（可选）</div>
+      <div class="seg" id="evalSeg">
+        <div class="chip sm" data-ev="">无</div>
+        <div class="chip sm" data-ev="亮点">⭐ 亮点</div>
+        <div class="chip sm" data-ev="不足">⚠️ 不足</div>
+        <div class="chip sm" data-ev="疑问">❓ 疑问</div>
+      </div>
+      <div class="sub-lbl">④ 备注（可选）</div>
+      <textarea class="field" id="tagNote" rows="2" placeholder="例如：激光笔+水槽演示折射，直观"></textarea>
+      <button class="save" id="saveTag" disabled onclick="saveTag()">保存</button>
+    </div>
+  </div>
+
+  <!-- ===== 信息编辑弹窗 ===== -->
+  <div class="mask" id="infoMask">
+    <div class="sheet">
+      <span class="closeX" onclick="closeInfo()">×</span>
+      <h3>听课信息</h3>
+      <div class="sub-lbl">课题</div>
+      <input class="field" id="iTitle" placeholder="如：光的折射">
+      <div class="sub-lbl">授课教师</div>
+      <input class="field" id="iTeacher" placeholder="如：张老师">
+      <div class="sub-lbl">班级</div>
+      <input class="field" id="iCls" placeholder="如：高二(3)班">
+      <div class="sub-lbl">听课人</div>
+      <input class="field" id="iObs" placeholder="如：李老师">
+      <div class="sub-lbl">日期</div>
+      <input class="field" id="iDate" placeholder="2026-11-03">
+      <div class="sub-lbl">节次</div>
+      <input class="field" id="iPeriod" placeholder="如：第 3 节">
+      <div class="sub-lbl">班级人数</div>
+      <input class="field" id="iCount" placeholder="如：48">
+      <div class="sub-lbl">听课地点</div>
+      <input class="field" id="iPlace" placeholder="如：物理实验室 2">
+      <button class="save" onclick="saveInfo()">保存</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+"use strict";
+
+/* ============ 常量 ============ */
+const LABELS = [
+  { k:"导入",            s:"导入", subs:["情境引入","复习引入","实验引入"] },
+  { k:"目标呈现",        s:"目标", subs:["行为目标","核心素养目标"] },
+  { k:"新授讲解",        s:"讲解", subs:["概念建构","规律推导","公式教学"] },
+  { k:"实验演示",        s:"演示", subs:["教师演示","现象展示"] },
+  { k:"学生实验",        s:"生实", subs:["分组探究","动手操作","器材整理"] },
+  { k:"探究活动",        s:"探究", subs:["提出问题","猜想假设","方案设计","实验验证","分析论证","成果展示"] },
+  { k:"提问互动",        s:"互动", subs:["追问","学生汇报","师生对话","小组交流"] },
+  { k:"当堂检测",        s:"检测", subs:["3–5分钟检测","预测单","随堂练习"] },
+  { k:"巩固练习",        s:"巩固", subs:["例题讲评","习题训练","变式拓展"] },
+  { k:"小结",            s:"小结", subs:["学生小结","教师小结","知识结构"] },
+  { k:"作业布置",        s:"作业", subs:["分层作业","挑战任务"] },
+  { k:"板书板图",        s:"板书", subs:["板书画图","思维导图","知识网络"] },
+  { k:"多媒体与信息技术", s:"技术", subs:["AI工具","模拟动画","投屏展示"] },
+  { k:"拓展延伸",        s:"拓展", subs:["生活应用","学科前沿","价值引领"] }
+];
+const COLORS = ["#2563eb","#0891b2","#7c3aed","#db2777","#dc2626","#ea580c","#d97706",
+                "#16a34a","#15803d","#0d9488","#4f46e5","#9333ea","#c026d3","#e11d48"];
+const EV_ICON = { "亮点":"⭐", "不足":"⚠️", "疑问":"❓" };
+const STORE_KEY = "tingke_v2";
+
+function colorOf(k){
+  const i = LABELS.findIndex(x=>x.k===k);
+  return COLORS[(i<0?0:i) % COLORS.length];
+}
+function subsOf(k){ const x=LABELS.find(y=>y.k===k); return x?x.subs:[]; }
+function shortOf(k){ const x=LABELS.find(y=>y.k===k); return x?x.s:k; }
+function newId(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+function pad2(n){ return String(n).padStart(2,"0"); }
+function fmt(s){
+  s = Math.max(0, Math.floor(s||0));
+  return pad2(Math.floor(s/60)) + ":" + pad2(s%60);
+}
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate());
+}
+
+/* ============ 状态 ============ */
+let S = {
+  view: "start",
+  running:false, paused:false, elapsed:0, timer:null,
+  info:{ title:"", teacher:"", cls:"", observer:"",
+         date:"", period:"", count:"", place:"" },
+  marks:[],
+  recEnabled:true,
+  sessions:[]
+};
+
+let rec = { active:false, sim:false, segs:[], cur:null };
+
+let editingId = null;     // null=新增；否则编辑该条
+let editingTs = 0;        // 冻结的打标时刻（修 P0-2）
+let lastMarkId = null;    // 供撤销
+let repMode = "share";
+let histSession = null;   // 查看历史时为该 session
+let longPressTimer = null, longPressFired = false;
+
+/* ============ 持久化 ============ */
+function save(){
+  try{
+    const cur = {
+      info:S.info, marks:S.marks, elapsed:S.elapsed,
+      running:S.running, paused:S.paused, recEnabled:S.recEnabled
+    };
+    localStorage.setItem(STORE_KEY, JSON.stringify({ current:cur, sessions:S.sessions }));
+  }catch(e){}
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(!raw) { S.info.date = todayStr(); return; }
+    const o = JSON.parse(raw);
+    if(o.sessions && Array.isArray(o.sessions)) S.sessions = o.sessions;
+    const c = o.current;
+    if(c){
+      if(c.info) S.info = Object.assign(S.info, c.info);
+      if(Array.isArray(c.marks)) S.marks = c.marks;
+      S.elapsed = c.elapsed || 0;
+      S.running = !!c.running;
+      S.paused  = !!c.paused;
+      S.recEnabled = c.recEnabled !== false;
+    }
+    if(!S.info.date) S.info.date = todayStr();
+  }catch(e){ S.info.date = todayStr(); }
+}
+
+/* ============ toast（带操作按钮） ============ */
+function toast(text, actLabel, actFn, ms){
+  const el = document.getElementById("toast");
+  el.innerHTML = "";
+  const sp = document.createElement("span");
+  sp.textContent = text;
+  el.appendChild(sp);
+  if(actLabel){
+    const b = document.createElement("button");
+    b.className = "tact";
+    b.textContent = actLabel;
+    b.onclick = (e)=>{ e.stopPropagation(); hideToast(); if(actFn) actFn(); };
+    el.appendChild(b);
+  }
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(hideToast, ms || (actLabel ? 5000 : 1900));
+}
+function hideToast(){ document.getElementById("toast").classList.remove("show"); }
+function haptic(){
+  try{ if(navigator.vibrate) navigator.vibrate(12); }catch(e){}
+}
+
+/* ============ 视图 ============ */
+function setView(v){
+  S.view = v;
+  document.getElementById("startView").style.display  = (v==="start")  ? "flex"  : "none";
+  document.getElementById("clockView").style.display  = (v==="clock")  ? "flex"  : "none";
+  document.getElementById("reportView").style.display = (v==="report") ? "block" : "none";
+  document.getElementById("histView").style.display   = (v==="hist")   ? "block" : "none";
+
+  const bar = document.getElementById("bottomBar");
+  bar.style.display = (v==="start") ? "none" : "block";
+  document.getElementById("barClock").style.display  = (v==="clock")  ? "flex" : "none";
+  document.getElementById("barReport").style.display = (v==="report") ? "flex" : "none";
+  document.getElementById("barHist").style.display   = (v==="hist")   ? "flex" : "none";
+  /* 计时中进历史页，必须能回到正在进行的计时（避免流程死路） */
+  const hb2 = document.getElementById("histBack");
+  if(hb2) hb2.style.display = (v==="hist" && S.running) ? "block" : "none";
+
+  const top = document.getElementById("topbar");
+  top.style.display = (v==="clock") ? "block" : "block";
+  if(v!=="clock") closeAxis();
+  window.scrollTo(0,0);
+}
+
+/* ============ 顶栏 ============ */
+function refreshTop(){
+  const i = S.info;
+  const t = document.getElementById("ttl");
+  const m = document.getElementById("meta");
+  if(S.view==="hist"){ t.textContent = "历史记录"; m.textContent = "共 " + S.sessions.length + " 节"; return; }
+  if(histSession){
+    t.textContent = histSession.info.title || "历史听课记录";
+    m.textContent = [histSession.info.cls, histSession.info.teacher, histSession.info.date]
+                      .filter(Boolean).join(" · ") || "历史记录";
+    return;
+  }
+  if(!S.running && !S.marks.length){
+    t.textContent = "听课打标";
+    m.textContent = i.title ? (i.title + " · " + [i.cls,i.teacher].filter(Boolean).join(" · "))
+                            : "准备开始";
+    return;
+  }
+  t.textContent = i.title || (S.running ? "听课进行中" : "听课记录");
+  let meta = [i.cls, i.teacher, i.observer].filter(Boolean).join(" · ");
+  if(i.date || i.period) meta = [i.date, i.period].filter(Boolean).join(" ") + (meta ? " · " + meta : "");
+  /* 录音状态由计时页指示器呈现，顶栏不再重复，避免两处说法不一致 */
+  m.textContent = meta || "—";
+}
+
+/* ============ 开始页 ============ */
+function renderStart(){
+  const i = S.info;
+  const set = (id,v)=>{ document.getElementById(id).textContent = v || "未填写"; };
+  set("sTitle", i.title);
+  set("sTeacher", i.teacher);
+  set("sCls", i.cls);
+  set("sObs", i.observer);
+  document.getElementById("sDate").textContent =
+    [i.date, i.period].filter(Boolean).join(" ") || "—";
+  const cb = document.getElementById("recOn");
+  cb.checked = !!S.recEnabled;
+  document.getElementById("recHint").textContent = S.recEnabled
+    ? "开始听课即同步录音，便于课后回听核对；不需要可取消勾选。"
+    : "已取消：本节只记录时间轴，不录音。";
+}
+function onRecToggle(){
+  S.recEnabled = document.getElementById("recOn").checked;
+  renderStart();
+  save();
+}
+
+/* ============ 计时 ============ */
+function tick(){
+  S.elapsed++;
+  renderClockNumbers();
+  if(S.view==="clock") renderNow();
+  if(rec.active) renderRec();
+}
+function renderClockNumbers(){
+  const t = document.getElementById("timer");
+  t.textContent = fmt(S.elapsed);
+  t.className = "timer" + (S.paused ? " paused" : "");
+  /* 状态文字必须同步，否则会出现"32:00 待开始"的矛盾显示 */
+  const st = document.getElementById("state");
+  if(st){
+    if(S.running){
+      st.textContent = S.paused ? "已暂停" : "听课中…";
+      st.className = "state " + (S.paused ? "pau" : "run");
+    }else if(S.marks.length || S.elapsed){
+      st.textContent = "本节已结束";
+      st.className = "state";
+    }else{
+      st.textContent = "待开始";
+      st.className = "state";
+    }
+  }
+}
+
+async function startSession(){
+  S.running = true; S.paused = false; S.elapsed = 0; S.marks = [];
+  lastMarkId = null; histSession = null;
+  rec.segs = []; rec.cur = null; rec.sim = false; rec.active = false;
+
+  if(S.timer) clearInterval(S.timer);
+  S.timer = setInterval(tick, 1000);
+
+  setView("clock");
+  renderClockNumbers();
+  renderDock(); renderNow(); refreshUI(); save();
+
+  if(S.recEnabled){
+    await startRec();
+    if(rec.sim){
+      toast("已开始计时；麦克风不可用，本节不生成音频", null, null, 4000);
+    }else{
+      toast("已开始计时并同步录音");
+    }
+  }else{
+    toast("已开始计时（未录音）");
+  }
+  refreshUI();
+}
+
+function togglePause(){
+  if(!S.running) return;
+  if(S.paused){
+    S.paused = false;
+    if(S.timer) clearInterval(S.timer);
+    S.timer = setInterval(tick, 1000);
+    if(rec.active && rec.cur && rec.cur.mr && rec.cur.mr.state === "paused"){
+      try{ rec.cur.mr.resume(); }catch(e){}
+    }
+    toast("继续计时");
+  }else{
+    S.paused = true;
+    if(S.timer) clearInterval(S.timer);
+    if(rec.active && rec.cur && rec.cur.mr && rec.cur.mr.state === "recording"){
+      try{ rec.cur.mr.pause(); }catch(e){}
+    }
+    toast("已暂停（录音同步暂停）");
+  }
+  refreshUI(); save();
+}
+
+function newSession(){
+  if(S.running){
+    if(!confirm("当前正在听课，要结束并开始新的一节吗？")) return;
+  }
+  histSession = null;
+  rec.segs = []; rec.cur = null; rec.active = false; rec.sim = false;
+  S.marks = []; S.elapsed = 0; S.running = false; S.paused = false;
+  if(S.timer){ clearInterval(S.timer); S.timer = null; }
+  save();
+  renderStart(); setView("start"); refreshUI();
+}
+
+/* ============ 录音（分段，修 P0-4 / P0-5） ============ */
+async function startRec(){
+  if(rec.active) return;
+  const c = { chunks:[], startElapsed:S.elapsed, mr:null, stream:null };
+  try{
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      throw new Error("no getUserMedia");
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio:true });
+    c.stream = stream;
+    const mr = new MediaRecorder(stream);
+    c.mr = mr;
+    mr.ondataavailable = (e)=>{ if(e.data && e.data.size) c.chunks.push(e.data); };
+    mr.start();
+    rec.cur = c; rec.sim = false; rec.active = true;
+  }catch(e){
+    rec.cur = c; rec.sim = true; rec.active = true;
+  }
+  renderRec(); refreshUI();
+}
+
+/* 返回 Promise，等真正落段后再 resolve —— 保证跳转报告页时音频已就绪 */
+function stopRec(){
+  return new Promise((resolve)=>{
+    if(!rec.active){
+      if(rec.cur && rec.cur.stream){
+        try{ rec.cur.stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+      }
+      rec.cur = null; renderRec(); resolve(); return;
+    }
+    const c = rec.cur;
+    const endElapsed = S.elapsed;
+    const wasSim = rec.sim;
+    rec.active = false;
+
+    const finish = ()=>{
+      if(c && c.stream){
+        try{ c.stream.getTracks().forEach(t=>t.stop()); }catch(e){}
+      }
+      if(c){
+        if(wasSim){
+          rec.segs.push({ sim:true, startElapsed:c.startElapsed, endElapsed:endElapsed });
+        }else if(c.chunks && c.chunks.length){
+          const mime = (c.mr && c.mr.mimeType) || "audio/webm";
+          const blob = new Blob(c.chunks, { type:mime });
+          rec.segs.push({
+            sim:false,
+            url: URL.createObjectURL(blob),
+            mime: mime,
+            startElapsed: c.startElapsed,
+            endElapsed: endElapsed
+          });
+        }
+      }
+      rec.cur = null;
+      renderRec(); refreshUI(); renderAudio();
+      resolve();
+    };
+
+    if(wasSim || !c || !c.mr || c.mr.state === "inactive"){
+      finish();
+    }else{
+      c.mr.addEventListener("stop", finish, { once:true });
+      try{ c.mr.stop(); }catch(e){ finish(); }
+    }
+  });
+}
+
+function recTotalDur(){
+  let d = 0;
+  rec.segs.forEach(s=>{ d += Math.max(0, (s.endElapsed||0) - (s.startElapsed||0)); });
+  if(rec.active && rec.cur) d += Math.max(0, S.elapsed - rec.cur.startElapsed);
+  return d;
+}
+function renderRec(){
+  const ind = document.getElementById("recInd");
+  const warn = document.getElementById("recWarn");
+  const btn = document.getElementById("pauseBtn");
+
+  if(rec.active && rec.sim){
+    ind.style.display = "none";
+    warn.style.display = "block";
+    warn.textContent = "⚠ 麦克风不可用，本节仅计时，不会生成音频文件";
+  }else if(rec.active){
+    ind.style.display = "inline-flex";
+    warn.style.display = "none";
+    document.getElementById("recTxt").textContent = "录音 " + fmt(recTotalDur());
+  }else{
+    ind.style.display = "none";
+    if(S.running && !S.recEnabled){
+      warn.style.display = "block";
+      warn.textContent = "本节未开启录音（可在结束后查看时间轴记录）";
+    }else{
+      warn.style.display = "none";
+    }
+  }
+  if(btn) btn.textContent = S.paused ? "继续" : "暂停";
+}
+
+/* ============ 当前环节 / 上一条 ============ */
+function lastMark(){
+  return S.marks.length ? S.marks[S.marks.length-1] : null;
+}
+function renderNow(){
+  const m = lastMark();
+  const lab = document.getElementById("nowLab");
+  const dur = document.getElementById("nowDur");
+  if(m){
+    const d = Math.max(0, S.elapsed - m.ts);
+    lab.textContent = m.label;
+    lab.style.background = colorOf(m.label);
+    dur.textContent = fmt(d);
+  }else{
+    lab.textContent = "未打标";
+    lab.style.background = "var(--sub)";
+    dur.textContent = fmt(S.elapsed);
+  }
+  const card = document.getElementById("lastCard");
+  const txt  = document.getElementById("lastTxt");
+  if(m){
+    card.style.display = "flex";
+    txt.innerHTML = "";
+    const pre = document.createElement("span");
+    pre.textContent = "上一条：";
+    const b = document.createElement("b");
+    b.textContent = m.label + (m.sub ? "·" + m.sub : "");
+    const t2 = document.createElement("span");
+    t2.textContent = " " + fmt(m.ts) + (m.eval ? " " + (EV_ICON[m.eval]||"") : "");
+    txt.appendChild(pre); txt.appendChild(b); txt.appendChild(t2);
+  }else{
+    card.style.display = "none";
+  }
+}
+
+/* ============ 标签坞（一键打标，修 P1-1） ============ */
+function renderDock(){
+  const dock = document.getElementById("dock");
+  if(!dock) return;
+  dock.innerHTML = "";
+  LABELS.forEach(L=>{
+    const d = document.createElement("div");
+    d.className = "dockitem";
+    d.textContent = L.s;
+    d.title = L.k;
+    d.dataset.k = L.k;
+
+    d.addEventListener("pointerdown", ()=>{
+      longPressFired = false;
+      clearTimeout(longPressTimer);
+      longPressTimer = setTimeout(()=>{
+        longPressFired = true;
+        openTag(null, L.k);
+      }, 520);
+    });
+    ["pointerup","pointerleave","pointercancel"].forEach(ev=>{
+      d.addEventListener(ev, ()=>{ clearTimeout(longPressTimer); });
+    });
+    d.addEventListener("click", ()=>{
+      if(longPressFired){ longPressFired = false; return; }
+      quickTag(L.k, d);
+    });
+    dock.appendChild(d);
+  });
+}
+
+function quickTag(k, node){
+  if(!S.running){ toast("请先开始听课"); return; }
+  if(S.paused){ toast("计时已暂停，继续后再打标"); return; }
+  const m = {
+    id: newId(), ts: S.elapsed, label: k, sub: "", eval: "", note: ""
+  };
+  S.marks.push(m);
+  S.marks.sort((a,b)=> a.ts - b.ts);
+  lastMarkId = m.id;
+
+  if(node){
+    node.classList.add("flash");
+    setTimeout(()=> node.classList.remove("flash"), 220);
+  }
+  haptic();
+  save(); refreshUI(); renderNow(); renderAxis();
+  toast("已记录：" + k + " " + fmt(m.ts), "撤销", ()=>{ undoMark(m.id); });
+}
+
+function undoMark(id){
+  const before = S.marks.length;
+  S.marks = S.marks.filter(m=> m.id !== id);
+  if(S.marks.length === before) return;
+  if(lastMarkId === id) lastMarkId = null;
+  save(); refreshUI(); renderNow(); renderAxis();
+  toast("已撤销该打标");
+}
+function undoLast(){
+  if(!lastMarkId) return;
+  undoMark(lastMarkId);
+}
+function editLast(){
+  const m = lastMark();
+  if(!m){ toast("还没有打标"); return; }
+  openTag(m.id);
+}
+
+/* ============ 打标弹窗（新增/编辑） ============ */
+function openTag(id, presetLabel){
+  if(!S.running && !id){ toast("请先开始听课"); return; }
+  editingId = id || null;
+  let m = id ? S.marks.find(x=> x.id === id) : null;
+
+  /* 关键修复：打标时刻在"打开/点击"的瞬间冻结，不再取保存时刻 */
+  editingTs = m ? m.ts : S.elapsed;
+
+  const curLabel = m ? m.label : (presetLabel || "");
+  const curSub   = m ? (m.sub || "")  : "";
+  const curEval  = m ? (m.eval || "") : "";
+  const curNote  = m ? (m.note || "") : "";
+
+  document.getElementById("tagHead").textContent = m ? "补充 / 修改这条打标" : "打标";
+  document.getElementById("tagTime").textContent = "打标时刻：" + fmt(editingTs)
+    + (m ? "" : "（已冻结，不会随保存时间变化）");
+
+  /* 主标签 */
+  const g = document.getElementById("labelGrid");
+  g.innerHTML = "";
+  LABELS.forEach(L=>{
+    const d = document.createElement("div");
+    d.className = "chip" + (L.k === curLabel ? " on" : "");
+    d.textContent = L.k;
+    d.dataset.k = L.k;
+    d.onclick = ()=>{
+      g.querySelectorAll(".chip").forEach(x=> x.classList.remove("on"));
+      d.classList.add("on");
+      g.dataset.sel = L.k;
+      showSubs(L.k, "");
+      updateSaveBtn();
+    };
+    g.appendChild(d);
+  });
+  g.dataset.sel = curLabel;
+
+  showSubs(curLabel, curSub);
+
+  /* 评课标记 */
+  const seg = document.getElementById("evalSeg");
+  seg.querySelectorAll(".chip").forEach(x=>{
+    x.classList.toggle("on", (x.dataset.ev || "") === curEval);
+    x.onclick = ()=>{
+      seg.querySelectorAll(".chip").forEach(y=> y.classList.remove("on"));
+      x.classList.add("on");
+      seg.dataset.sel = x.dataset.ev || "";
+    };
+  });
+  seg.dataset.sel = curEval;
+
+  document.getElementById("tagNote").value = curNote;
+  updateSaveBtn();
+  document.getElementById("tagMask").classList.add("show");
+}
+
+function showSubs(k, sel){
+  const w = document.getElementById("subWrap");
+  const g = document.getElementById("subGrid");
+  g.innerHTML = "";
+  const subs = subsOf(k);
+  if(!k || !subs.length){ w.style.display = "none"; g.dataset.sel = ""; return; }
+  w.style.display = "block";
+  subs.forEach(s=>{
+    const d = document.createElement("div");
+    d.className = "chip sm" + (s === sel ? " on" : "");
+    d.textContent = s;
+    d.onclick = ()=>{
+      const on = d.classList.contains("on");
+      g.querySelectorAll(".chip").forEach(x=> x.classList.remove("on"));
+      if(on){ g.dataset.sel = ""; }
+      else { d.classList.add("on"); g.dataset.sel = s; }
+    };
+    g.appendChild(d);
+  });
+  g.dataset.sel = sel || "";
+}
+
+function updateSaveBtn(){
+  const k = document.getElementById("labelGrid").dataset.sel;
+  document.getElementById("saveTag").disabled = !k;
+}
+
+function closeTag(){ document.getElementById("tagMask").classList.remove("show"); }
+
+function saveTag(){
+  const k = document.getElementById("labelGrid").dataset.sel;
+  if(!k){ toast("请选择环节"); return; }
+  const sub  = document.getElementById("subGrid").dataset.sel || "";
+  const ev   = document.getElementById("evalSeg").dataset.sel || "";
+  const note = (document.getElementById("tagNote").value || "").trim();
+
+  if(editingId){
+    const m = S.marks.find(x=> x.id === editingId);
+    if(m){ m.label = k; m.sub = sub; m.eval = ev; m.note = note; }
+    toast("已更新");
+  }else{
+    const m = { id:newId(), ts:editingTs, label:k, sub:sub, eval:ev, note:note };
+    S.marks.push(m);
+    S.marks.sort((a,b)=> a.ts - b.ts);
+    lastMarkId = m.id;
+    toast("已记录：" + k + " " + fmt(editingTs), "撤销", ()=> undoMark(m.id));
+  }
+  closeTag();
+  save(); refreshUI(); renderNow(); renderAxis();
+}
+
+/* ============ 时间轴 ============ */
+/* d = 数据源（实时 S 或历史 session），统一计算口径 */
+function sd(d, i){
+  const a = d.marks[i], b = d.marks[i+1];
+  if(!a) return 0;
+  return Math.max(0, (b ? b.ts : d.elapsed) - a.ts);
+}
+function unmarkedDur(d){
+  if(!d.marks.length) return Math.max(0, d.elapsed);
+  return Math.max(0, d.marks[0].ts);
+}
+
+function openAxis(){
+  document.getElementById("axisTitle").textContent = "时间轴（" + S.marks.length + " 条）";
+  renderAxis();
+  document.getElementById("dim").classList.add("show");
+  document.getElementById("axisDrawer").classList.add("show");
+}
+function closeAxis(){
+  document.getElementById("dim").classList.remove("show");
+  document.getElementById("axisDrawer").classList.remove("show");
+}
+
+function renderAxis(){
+  const list = document.getElementById("axisList");
+  if(!list) return;
+  list.innerHTML = "";
+  if(!S.marks.length){
+    const e = document.createElement("div");
+    e.className = "empty";
+    e.textContent = "还没有打标。关闭本页，在计时页轻点下方的环节标签即可立即记录。";
+    list.appendChild(e);
+    return;
+  }
+  S.marks.forEach((m, i)=>{
+    const row = document.createElement("div");
+    row.className = "item";
+
+    const t = document.createElement("div");
+    t.className = "t";
+    t.textContent = fmt(m.ts);
+
+    const body = document.createElement("div");
+    body.className = "body";
+
+    const lab = document.createElement("span");
+    lab.className = "lab";
+    lab.style.background = colorOf(m.label);
+    lab.textContent = m.label;
+    body.appendChild(lab);
+
+    if(m.sub){
+      const sb = document.createElement("span");
+      sb.className = "ev";
+      sb.textContent = "·" + m.sub;
+      body.appendChild(sb);
+    }
+    if(m.eval && EV_ICON[m.eval]){
+      const ev = document.createElement("span");
+      ev.className = "ev " + (m.eval==="亮点" ? "ok" : m.eval==="不足" ? "wa" : "qu");
+      ev.textContent = EV_ICON[m.eval];
+      body.appendChild(ev);
+    }
+    const du = document.createElement("span");
+    du.className = "dur";
+    du.textContent = "时长 " + fmt(sd(S, i));
+    body.appendChild(du);
+
+    if(m.note){
+      const nt = document.createElement("div");
+      nt.className = "note";
+      nt.textContent = m.note;
+      body.appendChild(nt);
+    }
+
+    const ops = document.createElement("div");
+    ops.className = "ops";
+    const bEdit = document.createElement("div");
+    bEdit.className = "op";
+    bEdit.textContent = "改";
+    bEdit.onclick = ()=> openTag(m.id);
+    const bDel = document.createElement("div");
+    bDel.className = "op del";
+    bDel.textContent = "删";
+    bDel.onclick = ()=> confirmDelete(m.id);
+    ops.appendChild(bEdit); ops.appendChild(bDel);
+
+    row.appendChild(t); row.appendChild(body); row.appendChild(ops);
+    list.appendChild(row);
+  });
+
+  /* 未打标段（修 P0-6 的可见性） */
+  const um = unmarkedDur(S);
+  if(um > 0){
+    const row = document.createElement("div");
+    row.className = "item";
+    const t = document.createElement("div");
+    t.className = "t";
+    t.textContent = "00:00";
+    const body = document.createElement("div");
+    body.className = "body";
+    const lab = document.createElement("span");
+    lab.className = "lab";
+    lab.style.background = "var(--sub)";
+    lab.textContent = "未打标";
+    const du = document.createElement("span");
+    du.className = "dur";
+    du.textContent = "时长 " + fmt(um);
+    body.appendChild(lab); body.appendChild(du);
+    row.appendChild(t); row.appendChild(body);
+    list.insertBefore(row, list.firstChild);
+  }
+}
+
+/* 删除：明确告知合并语义（修 P2-4） */
+function confirmDelete(id){
+  const i = S.marks.findIndex(m=> m.id === id);
+  if(i < 0) return;
+  const m = S.marks[i];
+  const prev = i > 0 ? S.marks[i-1] : null;
+  const next = S.marks[i+1] || null;
+  const span = Math.max(0, (next ? next.ts : S.elapsed) - m.ts);
+  let msg;
+  if(!S.marks.length || S.marks.length === 1){
+    msg = "删除这条打标（" + m.label + " " + fmt(m.ts) + "）？\n删除后这段 " + fmt(span) + " 将变为「未打标」。";
+  }else if(prev){
+    msg = "删除这条打标（" + m.label + " " + fmt(m.ts) + "）？\n"
+        + "删除后 " + fmt(m.ts) + "–" + fmt(next ? next.ts : S.elapsed) + " 这 " + fmt(span)
+        + " 将并入上一环节「" + prev.label + "」。";
+  }else{
+    msg = "删除第一条打标（" + m.label + " " + fmt(m.ts) + "）？\n"
+        + "删除后这 " + fmt(span) + " 将并入下一个环节「" + (next ? next.label : "（无）") + "」。";
+  }
+  if(!confirm(msg)) return;
+  S.marks.splice(i,1);
+  if(lastMarkId === id) lastMarkId = null;
+  save(); refreshUI(); renderNow(); renderAxis();
+  toast("已删除");
+}
+
+/* ============ 报告 ============ */
+function curData(){
+  if(histSession){
+    return { info:histSession.info, marks:histSession.marks,
+             elapsed:histSession.elapsed, isHist:true, hasAudio:histSession.hasAudio };
+  }
+  return { info:S.info, marks:S.marks, elapsed:S.elapsed, isHist:false,
+           hasAudio: rec.segs.some(s=> !s.sim) };
+}
+
+function setRep(m){
+  repMode = m;
+  document.querySelectorAll(".tbtn").forEach(b=> b.classList.toggle("on", b.dataset.rep === m));
+  document.getElementById("shareBox").style.display = (m === "share") ? "block" : "none";
+  document.getElementById("reportBox").style.display = (m === "share") ? "none" : "block";
+  renderReport();
+}
+
+function renderReport(){
+  const d = curData();
+  refreshTop();
+
+  /* 音频区 */
+  renderAudio();
+
+  /* 历史提示 */
+  const hb = document.getElementById("histBanner");
+  if(d.isHist){
+    hb.style.display = "block";
+    hb.textContent = "这是历史记录（只读）：" + (d.info.title || "未命名")
+      + "　" + (d.info.date || "") + "　时长 " + fmt(d.elapsed);
+  }else{
+    hb.style.display = "none";
+  }
+
+  /* 导出按钮：历史只读时隐藏音频相关 */
+  if(repMode === "share") renderShare(d);
+  else if(repMode === "txt") renderTxt(d);
+  else renderCsv(d);
+}
+
+function shareData(d){
+  const total = d.elapsed || 0;
+  const map = {};
+  d.marks.forEach((m,i)=>{ map[m.label] = (map[m.label] || 0) + sd(d,i); });
+  const rows = Object.keys(map)
+    .map(k=>({ k:k, d:map[k], p: total ? map[k]/total*100 : 0 }))
+    .sort((a,b)=> b.d - a.d);
+  const um = unmarkedDur(d);
+  return { total:total, rows:rows, unmarked:um, unmarkedPct: total ? um/total*100 : 0 };
+}
+
+function renderShare(d){
+  const box = document.getElementById("shareBox");
+  box.innerHTML = "";
+  const data = shareData(d);
+
+  if(!d.marks.length){
+    const e = document.createElement("div");
+    e.className = "empty";
+    e.textContent = "暂无打标记录，无法统计环节占比。";
+    box.appendChild(e);
+    return;
+  }
+
+  const cap = document.createElement("div");
+  cap.style.cssText = "font-size:12px;color:var(--sub);margin-bottom:14px;line-height:1.6;";
+  cap.textContent = "总时长 " + fmt(data.total) + "，共 " + d.marks.length
+    + " 个打标；占比 = 该类累计时长 ÷ 总计时（保留 1 位小数）。";
+  box.appendChild(cap);
+
+  const mkRow = (name, dur, pct, color)=>{
+    const row = document.createElement("div");
+    row.className = "srow";
+    const head = document.createElement("div");
+    head.className = "shead";
+    const nm = document.createElement("span");
+    nm.className = "nm";
+    nm.style.color = color;
+    nm.textContent = name;
+    const num = document.createElement("span");
+    num.className = "num";
+    num.textContent = fmt(dur) + " · " + pct.toFixed(1) + "%";
+    head.appendChild(nm); head.appendChild(num);
+    const bar = document.createElement("div");
+    bar.className = "sbar";
+    const fill = document.createElement("div");
+    fill.className = "sfill";
+    fill.style.width = Math.max(0, Math.min(100, pct)) + "%";
+    fill.style.background = color;
+    bar.appendChild(fill);
+    row.appendChild(head); row.appendChild(bar);
+    return row;
+  };
+
+  data.rows.forEach(r=> box.appendChild(mkRow(r.k, r.d, r.p, colorOf(r.k))));
+  if(data.unmarked > 0){
+    box.appendChild(mkRow("未打标", data.unmarked, data.unmarkedPct, "var(--sub)"));
+  }
+
+  const sum = document.createElement("div");
+  sum.className = "sumrow";
+  const s1 = document.createElement("span");
+  s1.textContent = "合计 " + fmt(data.total);
+  const s2 = document.createElement("span");
+  const covered = data.rows.reduce((a,r)=> a + r.p, 0) + (data.unmarked > 0 ? data.unmarkedPct : 0);
+  s2.textContent = "已归属 " + covered.toFixed(1) + "%";
+  sum.appendChild(s1); sum.appendChild(s2);
+  box.appendChild(sum);
+}
+
+function txtOf(d){
+  const i = d.info;
+  const head = "【" + (i.title || "未命名课题") + "】"
+    + [i.cls, i.teacher, i.date, i.period].filter(Boolean).join(" ")
+    + "  时长 " + fmt(d.elapsed);
+  let t = head + "\n";
+  if(!d.marks.length){ return t + "（暂无打标记录）"; }
+  const um = unmarkedDur(d);
+  if(um > 0) t += "\n00:00 未打标  〔时长 " + fmt(um) + "〕";
+  d.marks.forEach((m,idx)=>{
+    t += "\n" + fmt(m.ts) + " " + m.label
+      + (m.sub ? "·" + m.sub : "")
+      + (m.eval ? " " + (EV_ICON[m.eval] || "") : "")
+      + "  〔时长 " + fmt(sd(d,idx)) + "〕"
+      + (m.note ? "  " + m.note : "");
+  });
+  const data = shareData(d);
+  t += "\n\n—— 环节占比 ——";
+  data.rows.forEach(r=>{ t += "\n" + r.k + "  " + fmt(r.d) + "  " + r.p.toFixed(1) + "%"; });
+  if(data.unmarked > 0){
+    t += "\n未打标  " + fmt(data.unmarked) + "  " + data.unmarkedPct.toFixed(1) + "%";
+  }
+  t += "\n合计  " + fmt(data.total) + "  100.0%";
+  return t;
+}
+
+function renderTxt(d){
+  document.getElementById("reportBox").textContent = txtOf(d);
+}
+
+function csvCell(v){
+  const s = String(v === undefined || v === null ? "" : v);
+  return '"' + s.replace(/"/g, '""') + '"';
+}
+function csvOf(d){
+  const rows = [["序号","时间(秒)","时间","环节","子标签","评课标记","环节时长(秒)","备注"]];
+  const um = unmarkedDur(d);
+  if(um > 0) rows.push(["0","0","00:00","未打标","","",String(um),"开始至首个打标"]);
+  d.marks.forEach((m,i)=>{
+    rows.push([String(i+1), String(m.ts), fmt(m.ts), m.label, m.sub || "",
+               m.eval || "", String(sd(d,i)), m.note || ""]);
+  });
+  return "\uFEFF" + rows.map(r=> r.map(csvCell).join(",")).join("\r\n");
+}
+function renderCsv(d){
+  document.getElementById("reportBox").textContent = csvOf(d).replace(/^\uFEFF/, "");
+}
+
+function downloadCsv(){
+  const d = curData();
+  try{
+    const blob = new Blob([csvOf(d)], { type:"text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = (d.info.title || "听课") + "-时间轴.csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(url), 4000);
+    toast("已导出 CSV（Excel 可直接打开）");
+  }catch(e){ toast("导出失败：" + e.message); }
+}
+
+function copyText(){
+  const d = curData();
+  const txt = txtOf(d);
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(
+      ()=> toast("已复制到剪贴板"),
+      ()=> fallbackCopy(txt)
+    );
+  }else fallbackCopy(txt);
+
+  function fallbackCopy(t){
+    const ta = document.createElement("textarea");
+    ta.value = t;
+    ta.style.cssText = "position:fixed;left:-9999px;";
+    document.body.appendChild(ta);
+    ta.select();
+    let ok = false;
+    try{ ok = document.execCommand("copy"); }catch(e){}
+    ta.remove();
+    toast(ok ? "已复制到剪贴板" : "复制失败，请长按选择文本");
+  }
+}
+
+/* 导出占比长图（教研组群分享用） */
+function exportPng(){
+  const d = curData();
+  const data = shareData(d);
+  const F = (px)=> px + "px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
+
+  const rows = data.rows.slice();
+  const hasUm = data.unmarked > 0;
+  const W = 900;
+  const headH = 190;
+  const rowH = 74;
+  const footH = 76;
+  const listH = rows.length * rowH + (hasUm ? rowH : 0);
+  const H = headH + listH + footH;
+
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const g = c.getContext("2d");
+
+  g.fillStyle = "#ffffff"; g.fillRect(0,0,W,H);
+
+  /* 头部 */
+  g.fillStyle = "#2563eb"; g.fillRect(0,0,W,120);
+  g.fillStyle = "#ffffff";
+  g.font = "bold 34px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
+  g.fillText(d.info.title || "听课记录", 40, 58);
+  g.font = F(19);
+  g.fillStyle = "#dbeafe";
+  const sub = [d.info.cls, d.info.teacher, d.info.date, d.info.period].filter(Boolean).join(" · ");
+  g.fillText(sub || "—", 40, 92);
+
+  /* 汇总行 */
+  g.fillStyle = "#1f2937";
+  g.font = F(22);
+  g.fillText("总时长 " + fmt(data.total) + "　·　打标 " + d.marks.length + " 条", 40, 160);
+
+  /* 条形 */
+  let y = headH + 22;
+  const drawRow = (name, dur, pct, color)=>{
+    g.fillStyle = "#1f2937";
+    g.font = "bold 22px -apple-system,'PingFang SC','Microsoft YaHei',sans-serif";
+    g.fillText(name, 40, y);
+    g.fillStyle = "#2563eb";
+    g.textAlign = "right";
+    g.fillText(fmt(dur) + " · " + pct.toFixed(1) + "%", W - 40, y);
+    g.textAlign = "left";
+    g.fillStyle = "#e8edf3";
+    g.fillRect(40, y + 12, W - 80, 16);
+    g.fillStyle = color;
+    g.fillRect(40, y + 12, Math.max(2, (W - 80) * Math.min(1, pct / 100)), 16);
+    y += rowH;
+  };
+  rows.forEach(r=> drawRow(r.k, r.d, r.p, colorOf(r.k)));
+  if(hasUm) drawRow("未打标", data.unmarked, data.unmarkedPct, "#9ca3af");
+
+  /* 页脚 */
+  g.fillStyle = "#94a3b8";
+  g.font = F(17);
+  g.fillText("由「听课打标」生成 · 占比 = 该类累计时长 ÷ 总计时", 40, H - 28);
+
+  try{
+    const a = document.createElement("a");
+    a.download = (d.info.title || "听课") + "-环节占比.png";
+    a.href = c.toDataURL("image/png");
+    document.body.appendChild(a); a.click(); a.remove();
+    toast("已导出占比长图");
+  }catch(e){ toast("导出失败：" + e.message); }
+}
+
+/* ============ 音频区（修 P0-4） ============ */
+function renderAudio(){
+  const wrap = document.getElementById("audioWrap");
+  if(!wrap) return;
+  wrap.innerHTML = "";
+
+  if(histSession){
+    const n = document.createElement("div");
+    n.className = "audionote";
+    n.textContent = "历史记录不保存音频文件（音频仅保留在本次运行内，后续版本落盘保存）。";
+    wrap.appendChild(n);
+    return;
+  }
+
+  if(!rec.segs.length){
+    if(S.recEnabled && !S.running && S.marks.length){
+      const n = document.createElement("div");
+      n.className = "audionote";
+      n.textContent = S.recEnabled
+        ? "本次没有可用音频（可能是麦克风未授权或被中断）。"
+        : "本次未开启录音。";
+      wrap.appendChild(n);
+    }
+    return;
+  }
+
+  const realSegs = rec.segs.filter(s=> !s.sim);
+  if(!realSegs.length){
+    const n = document.createElement("div");
+    n.className = "audionote";
+    n.textContent = "⚠ 本次为模拟录音，未生成音频文件（麦克风不可用）。时长统计仍有效。";
+    wrap.appendChild(n);
+    return;
+  }
+
+  const box = document.createElement("div");
+  box.className = "audio";
+  const tt = document.createElement("div");
+  tt.className = "atitle";
+  tt.textContent = "录音回听（共 " + realSegs.length + " 段，累计 " + fmt(recTotalDur()) + "）";
+  box.appendChild(tt);
+
+  realSegs.forEach((s, idx)=>{
+    if(realSegs.length > 1){
+      const lb = document.createElement("div");
+      lb.className = "atitle";
+      lb.textContent = "第 " + (idx+1) + " 段 · " + fmt(s.startElapsed) + "–" + fmt(s.endElapsed);
+      box.appendChild(lb);
+    }
+    const au = document.createElement("audio");
+    au.controls = true;
+    au.src = s.url;
+    box.appendChild(au);
+
+    const a = document.createElement("a");
+    a.className = "alnk";
+    a.href = s.url;
+    const ext = (s.mime || "").indexOf("mp4") >= 0 ? "m4a" : "webm";
+    a.download = (S.info.title || "听课") + "-录音" + (realSegs.length > 1 ? (idx+1) : "") + "." + ext;
+    a.textContent = "⬇ 下载第 " + (idx+1) + " 段";
+    box.appendChild(a);
+  });
+
+  wrap.appendChild(box);
+}
+
+/* ============ 历史（修 P0-3） ============ */
+function openHist(){
+  setView("hist");
+  renderHist();
+  refreshTop();
+}
+function backToClock(){
+  if(S.running || S.marks.length || S.elapsed){ setView("clock"); renderNow(); }
+  else setView("start");
+}
+function renderHist(){
+  const list = document.getElementById("histList");
+  list.innerHTML = "";
+  if(!S.sessions.length){
+    const e = document.createElement("div");
+    e.className = "empty";
+    e.textContent = "还没有历史听课记录。结束一节听课后会自动存档在这里。";
+    list.appendChild(e);
+    return;
+  }
+  S.sessions.forEach(s=>{
+    const it = document.createElement("div");
+    it.className = "hitem";
+
+    const h1 = document.createElement("div");
+    h1.className = "h1";
+    h1.textContent = s.info.title || "未命名课题";
+
+    const h2 = document.createElement("div");
+    h2.className = "h2";
+    h2.textContent = [s.info.cls, s.info.teacher, s.info.date, s.info.period]
+      .filter(Boolean).join(" · ") || "—";
+
+    const h3 = document.createElement("div");
+    h3.className = "h3";
+    h3.textContent = "时长 " + fmt(s.elapsed) + "　·　打标 " + s.marks.length + " 条"
+      + (s.hasAudio ? "　·　含录音" : "");
+
+    it.appendChild(h1); it.appendChild(h2); it.appendChild(h3);
+
+    const ops = document.createElement("div");
+    ops.style.cssText = "margin-top:8px;display:flex;gap:8px;";
+    const bView = document.createElement("button");
+    bView.className = "op";
+    bView.textContent = "查看报告";
+    bView.onclick = (e)=>{ e.stopPropagation(); viewSession(s.id); };
+    const bDel = document.createElement("button");
+    bDel.className = "op del";
+    bDel.textContent = "删除";
+    bDel.onclick = (e)=>{
+      e.stopPropagation();
+      if(!confirm("删除这条历史记录？不可恢复。")) return;
+      S.sessions = S.sessions.filter(x=> x.id !== s.id);
+      save(); renderHist(); refreshTop();
+      toast("已删除");
+    };
+    ops.appendChild(bView); ops.appendChild(bDel);
+    it.appendChild(ops);
+
+    it.onclick = ()=> viewSession(s.id);
+    list.appendChild(it);
+  });
+}
+function viewSession(id){
+  const s = S.sessions.find(x=> x.id === id);
+  if(!s) return;
+  histSession = s;
+  setView("report");
+  setRep("share");
+  renderReport();
+}
+
+/* ============ 信息编辑 ============ */
+function openInfo(){
+  const i = S.info;
+  document.getElementById("iTitle").value   = i.title || "";
+  document.getElementById("iTeacher").value = i.teacher || "";
+  document.getElementById("iCls").value     = i.cls || "";
+  document.getElementById("iObs").value     = i.observer || "";
+  document.getElementById("iDate").value    = i.date || todayStr();
+  document.getElementById("iPeriod").value  = i.period || "";
+  document.getElementById("iCount").value   = i.count || "";
+  document.getElementById("iPlace").value   = i.place || "";
+  document.getElementById("infoMask").classList.add("show");
+}
+function closeInfo(){ document.getElementById("infoMask").classList.remove("show"); }
+function saveInfo(){
+  S.info = {
+    title:    document.getElementById("iTitle").value.trim(),
+    teacher:  document.getElementById("iTeacher").value.trim(),
+    cls:      document.getElementById("iCls").value.trim(),
+    observer: document.getElementById("iObs").value.trim(),
+    date:     document.getElementById("iDate").value.trim() || todayStr(),
+    period:   document.getElementById("iPeriod").value.trim(),
+    count:    document.getElementById("iCount").value.trim(),
+    place:    document.getElementById("iPlace").value.trim()
+  };
+  closeInfo();
+  renderStart(); refreshTop(); save(); refreshUI();
+  toast("信息已保存");
+}
+
+/* ============ 结束本节 ============ */
+function endSession(){
+  if(!S.running && !S.marks.length){
+    toast("还没有开始听课");
+    return;
+  }
+  const msg = S.marks.length
+    ? "结束本节？已记录 " + S.marks.length + " 个打标，总时长 " + fmt(S.elapsed)
+      + "。结束后可随时在「历史」回看。"
+    : "本节还没有任何打标，确认结束？";
+  if(!confirm(msg)) return;
+
+  if(S.timer){ clearInterval(S.timer); S.timer = null; }
+  S.running = false; S.paused = false;
+
+  /* 等录音真正落段，再跳报告页（修 P0-4）。返回 Promise，保证调用方可等待 */
+  return stopRec().then(()=>{
+    const sess = {
+      id: newId(),
+      info: JSON.parse(JSON.stringify(S.info)),
+      marks: JSON.parse(JSON.stringify(S.marks)),
+      elapsed: S.elapsed,
+      endedAt: Date.now(),
+      hasAudio: rec.segs.some(s=> !s.sim)
+    };
+    S.sessions.unshift(sess);
+    if(S.sessions.length > 80) S.sessions.pop();
+
+    histSession = null;
+    save();
+    setView("report");
+    setRep("share");
+    renderReport();
+    refreshUI();
+    window.scrollTo(0,0);
+    toast("已生成听课报告");
+  });
+}
+
+/* ============ 统一刷新 ============ */
+function refreshUI(){
+  renderClockNumbers();
+  renderRec();
+  const badge = document.getElementById("cntBadge");
+  if(badge) badge.textContent = S.marks.length ? String(S.marks.length) : "";
+  const pauseBtn = document.getElementById("pauseBtn");
+  if(pauseBtn) pauseBtn.textContent = S.paused ? "继续" : "暂停";
+  const dock = document.getElementById("dock");
+  if(dock){
+    const on = (S.view === "clock" && S.running);
+    dock.style.opacity = on ? "1" : ".5";
+  }
+  refreshTop();
+}
+
+/* ============ 初始化 ============ */
+function init(){
+  load();
+  renderStart();
+  renderDock();
+
+  document.querySelectorAll(".mask").forEach(m=>{
+    m.addEventListener("click", (e)=>{ if(e.target === m) m.classList.remove("show"); });
+  });
+
+  if(S.running && !S.paused){
+    if(S.timer) clearInterval(S.timer);
+    S.timer = setInterval(tick, 1000);
+    setView("clock");
+    renderClockNumbers(); renderNow(); renderAxis();
+    toast("已恢复上次未结束的计时（录音未恢复）", null, null, 3200);
+  }else if(S.marks.length || S.elapsed){
+    setView("clock");
+    renderClockNumbers(); renderNow(); renderAxis();
+  }else{
+    setView("start");
+  }
+  refreshUI();
+}
+
+init();
+</script>
+</body>
+</html>
