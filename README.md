@@ -13,10 +13,21 @@
 
 ## 下载安装
 
-到 [**Releases**](../../releases/latest) 页下载 `tingke-app-<版本>-release.apk`，传到手机点击安装
-（首次需在系统里允许"安装未知来源应用"）。这是**正式签名包**，可覆盖升级，不会丢历史记录。
+**[GitHub Releases](../../releases/latest)** ｜ **[Gitee 发行版](https://gitee.com/xdot/tingke-app/releases)**（国内访问更快，两边是同一个签名包）
+
+下载 `tingke-app-<版本>-release.apk`，传到手机点击安装（首次需在系统里允许"安装未知来源应用"）。
+这是**正式签名包**，可覆盖升级，不会丢历史记录。
 
 > 从 v1.2 的 debug 包升级到正式签名包时，因签名不同需要先卸载再装（历史记录会丢，可先在旧版里把报告导出 CSV）。
+
+## 镜像
+
+| 平台 | 仓库 | 发行版 |
+|---|---|---|
+| GitHub | <https://github.com/dashixdot/tingke-app> | <https://github.com/dashixdot/tingke-app/releases> |
+| Gitee | <https://gitee.com/xdot/tingke-app> | <https://gitee.com/xdot/tingke-app/releases> |
+
+两边的 `main` 分支与 `v*` 标签保持同步；安装包以 GitHub Release 为准，Gitee 发行版挂同一份 APK。
 
 ## 功能
 
